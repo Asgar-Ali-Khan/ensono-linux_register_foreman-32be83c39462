@@ -29,18 +29,19 @@
 
 - name: Retrieve Credential to register to Foreman
   ensono.envision.get_credential:
-    CMDB_Client: "Attenda Enterprise Architecture"
+    CMDB_Client: "Ensono Shared"
     CMDB_Host: "Attenda Enterprise Architecture"
     Reason: "Foreman Automation"
-    CredentialType: "Automation"
-    Username: "ecp\\{{ Foreman_Sudo_User }}"
+    CredentialType: "SSH KeyPair"
+    Username: "{{ Foreman_Sudo_User }}"
   register: smart_proxy_key
   ignore_errors: true
   no_log: true
   #run_once: true
   delegate_to: 127.0.0.1
   become: false
-
+  debug: 
+  
 - name: Set foreman_key as global fact
   set_fact:
     foreman_key: "{{ smart_proxy_key.publickey }}"
