@@ -1,0 +1,160 @@
+---
+
+- name: Download and install CA certificate of Katello/Foreman Smart Proxy Server {{ Foreman_Smart_Proxy_Fqdn }}
+  yum:
+    name: "http://{{ Foreman_Smart_Proxy_Fqdn }}/pub/katello-ca-consumer-latest.noarch.rpm"
+    disable_gpg_check: yes
+    state: present
+  register: katello
+
+- name: Registering the server to Smart Proxy server {{ Foreman_Smart_Proxy_Fqdn }}
+  redhat_subscription:
+    state: present
+    activationkey: "{{ Foreman_Key }}"
+    org_id: "{{ Foreman_Org }}"
+  when: katello is success 
+
+- name: Create {{ Foreman_Sudo_User }} Foreman service account in the server
+  user:
+    name: "{{ Foreman_Sudo_User }}"
+    comment: "service account for foreman"
+    home: "/home/{{ Foreman_Sudo_User }}"
+    shell: /bin/bash
+
+- name: Create sudoer file for {{ Foreman_Sudo_User }}
+  file:
+    path: "/etc/sudoers.d/{{ Foreman_Sudo_User }}"
+    state: touch
+    mode: 0440
+    owner: root
+    group: root
+
+- name: Add sudoers rules for {{ Foreman_Sudo_User }}
+  copy:
+     dest: "/etc/sudoers.d/{{ Foreman_Sudo_User }}"
+     content: |
+        {{ Foreman_Sudo_User }} ALL=NOPASSWD:   ALL
+
+- name: Create {{ Foreman_Sudo_User }} account home/.ssh directory 
+  file:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/"
+    state: directory
+    mode: 0755
+    owner: "{{ Foreman_Sudo_User }}"
+    group: "{{ Foreman_Sudo_User }}"
+
+- name: Create {{ Foreman_Sudo_User }} auth file for ssh connection
+  file:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    state: touch
+    mode: 0440
+    owner: "{{ Foreman_Sudo_User }}"
+    group: "{{ Foreman_Sudo_User }}"
+
+- name: Copy foreman-proxy key to server
+  lineinfile:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    line: "{{ smart_proxy_key.publickey }}"
+    state: present
+  when: Foreman_Smart_Proxy == "UK_ENVISION"
+
+- name: Copy foreman-proxy key to server
+  lineinfile:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    line: "{{ smart_proxy_key.publickey }}"
+    state: present
+  when: Foreman_Smart_Proxy == "UK_CLIENT"
+
+- name: Copy foreman-proxy key to server
+  lineinfile:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    line: "{{ smart_proxy_key.publickey }}"
+    state: present
+  when: Foreman_Smart_Proxy == "US_ENVISION"
+
+- name: Copy foreman-proxy key to server
+  lineinfile:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    line: "{{ smart_proxy_key.publickey }}"
+    state: present
+  when: Foreman_Smart_Proxy == "US_CLIENT"
+
+- name: Retrieve host group ID
+  uri:
+    body_format: json
+    headers:
+      content-type: application/json
+    url: "{{ foreman_server }}/api/hostgroups/{{ patching_group }}"
+    validate_certs: no
+    user: "{{ foreman_username }}"
+    password: "{{ foreman_cred.Password }}"
+    method: GET
+    force_basic_auth: yes
+    status_code: 200,201
+    return_content: yes
+  register: hostgroup
+
+- name: debug the result
+  debug: 
+    var: hostgroup.json.id
+
+- name: Determine host identifiers (short and FQDN)
+  set_fact:
+    foreman_host_short: "{{ ansible_hostname | lower }}"
+    foreman_host_fqdn: "{{ ansible_hostname | lower }}.ecp.ensono.com"
+
+- name: Build encoded Foreman search query
+  set_fact:
+    foreman_search_query: "name=\"{{ foreman_host_short }}\" OR name=\"{{ foreman_host_fqdn }}\""
+
+- name: Search Foreman for host by short name or FQDN (URL-encoded)
+  uri:
+    url: "{{ foreman_server }}/api/hosts?per_page=2&search={{ foreman_search_query | urlencode }}"
+    method: GET
+    validate_certs: no
+    user: "{{ foreman_username }}"
+    password: "{{ foreman_cred.Password }}"
+    force_basic_auth: yes
+    status_code: 200
+    return_content: yes
+  register: foreman_host_search
+
+- name: Fail if host not found in Foreman
+  fail:
+    msg: "Host not found in Foreman using '{{ foreman_host_short }}' or '{{ foreman_host_fqdn }}'"
+  when: foreman_host_search.json.total <= 0
+
+- name: Set host id from search result
+  set_fact:
+    foreman_host_id: "{{ (foreman_host_search.json.results | first).id }}"
+
+- name: Set host identifier (use exact name returned by Foreman)
+  set_fact:
+    foreman_host_identifier: "{{ (foreman_host_search.json.results | first).name }}"
+
+- name: Capture current hostgroup id from search (if available)
+  set_fact:
+    current_hostgroup_id: "{{ (foreman_host_search.json.results | first).hostgroup_id | default(None) }}"
+  when: foreman_host_search.json.total | default(0) > 0
+
+- name: Update host's host group using resolved identifier only if different
+  uri:
+    body_format: json
+    headers:
+      content-type: application/json
+    url: "{{ foreman_server }}/api/hosts/{{ foreman_host_identifier }}"
+    validate_certs: no
+    user: "{{ foreman_username }}"
+    password: "{{ foreman_cred.Password }}"
+    method: PUT
+    body:
+      {
+        "host": {
+          "hostgroup_id": "{{ hostgroup.json.id }}"
+        }
+      }
+    force_basic_auth: yes
+    status_code: 200,201
+    return_content: yes
+  when: current_hostgroup_id is not defined or (current_hostgroup_id|string) != (hostgroup.json.id|string)
+  register: result

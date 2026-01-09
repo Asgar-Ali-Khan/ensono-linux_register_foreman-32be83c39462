@@ -1,0 +1,82 @@
+---
+
+# Standards: 1.0
+# file: roles\Linux-Register-Foreman\tasks\main.yml
+
+
+# Register Linux server to Foreman
+- name: Retrieve Credential to connect Foreman
+  ensono.envision.get_credential:
+    CMDB_Client: "Attenda Enterprise Architecture"
+    CMDB_Host: "Attenda Enterprise Architecture"
+    Reason: "Foreman Automation"
+    CredentialType: "Automation"
+    Username: "ecp\\{{ foreman_username }}"
+  register: foreman_cred
+  ignore_errors: true
+  no_log: true
+  #run_once: true
+  delegate_to: 127.0.0.1
+  become: false
+
+- name: Set foreman_secret as global fact
+  set_fact:
+    foreman_password: "{{ foreman_cred.Password }}"
+  delegate_to: 127.0.0.1
+  no_log: true
+  delegate_facts: true
+  run_once: true
+
+- name: Retrieve Credential to register to Foreman
+  ensono.envision.get_credential:
+    CMDB_Client: "Attenda Enterprise Architecture"
+    CMDB_Host: "Attenda Enterprise Architecture"
+    Reason: "Foreman Automation"
+    CredentialType: "Automation"
+    Username: "ecp\\{{ Foreman_Sudo_User }}"
+  register: smart_proxy_key
+  ignore_errors: true
+  no_log: true
+  #run_once: true
+  delegate_to: 127.0.0.1
+  become: false
+
+- name: Set foreman_key as global fact
+  set_fact:
+    foreman_key: "{{ smart_proxy_key.publickey }}"
+  delegate_to: 127.0.0.1
+  no_log: true
+  delegate_facts: true
+  run_once: true
+
+# Register Linux server to Foreman
+
+- name: Pre-Check before register
+  include: Redhat_dist_pre-check.yml
+  when: UnInstall is not defined and ansible_facts['os_family'] == "RedHat" or
+        UnInstall is not defined and ansible_facts['os_family'] == "Rocky" or
+        UnInstall is not defined and ansible_facts['os_family'] == "Oracle Linux"
+  tags:
+  - pre
+  
+- name: Register Linux server to Foreman 
+  include: Redhat_dist_register.yml
+  when: UnInstall is not defined and ansible_facts['os_family'] == "RedHat" or
+        UnInstall is not defined and ansible_facts['os_family'] == "Rocky" or
+        UnInstall is not defined and ansible_facts['os_family'] == "Oracle Linux"
+  tags:
+  - register_to_foreman 
+
+- name: Unregister Linux server from Foreman
+  include: Redhat_dist_unregister.yml
+  when: UnInstall is defined and ansible_facts['os_family'] == "RedHat" or
+        UnInstall is defined and ansible_facts['os_family'] == "Rocky" or
+        UnInstall is defined and ansible_facts['os_family'] == "Oracle Linux"
+  tags:
+  - unregister_from_foreman 
+  
+- name: Register Linux server to Foreman 
+  include: Ubuntu_Register.yml
+  when: UnInstall is not defined and ansible_facts['os_family'] == "Debian"
+  tags:
+  - register_to_foreman 

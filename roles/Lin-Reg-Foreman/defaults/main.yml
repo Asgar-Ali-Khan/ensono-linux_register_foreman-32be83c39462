@@ -1,0 +1,7 @@
+---
+
+# Standards: 1.0
+# file: roles\Lin-Reg-Foreman\defaults\main.yml
+
+# 
+# Register the Linux server to Foreman

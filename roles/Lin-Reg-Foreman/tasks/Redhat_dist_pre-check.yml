@@ -1,0 +1,55 @@
+---
+
+# Standards: 1.0
+# file: roles/Lin-Reg-Foreman/tasks/pre-check.yml
+
+
+- name: Check if ports = 443 and 9090 are open before starting registration
+  wait_for:
+    host: "{{ Foreman_Smart_Proxy_Fqdn }}"
+    port: "{{ item }}"
+    state: present  # Port should be open
+    delay: 0        # No wait before first check (sec)
+    timeout: 3      # stop checking after timeout (sec)
+  register: wait_for_unix
+  ignore_errors: yes
+  with_items:
+    - 443
+    - 9090
+
+- name: Verify open ports status, fail if ports =  443 and 9090 are not open.
+  fail:
+    msg: "Registration can not start, as one of the ports =  443 and 9090 is/are not open."
+  when: wait_for_unix.failed is defined
+
+- name: "Check if {{ package_name }} package is installed"
+  package_facts:
+    manager: "auto"
+
+- name: Install package if not present in RHEL/CentOS/OEL
+  yum:
+    name: "{{ package_name }}"
+    state: present
+  when: "'package_name' not in ansible_facts.packages"
+
+- name: Disable proxy in yum.conf
+  replace:
+    path: /etc/yum.conf
+    regexp: '^proxy'
+    replace: '#proxy'
+    backup: yes
+
+- name: Disable proxy in dnf.conf
+  replace:
+    path: /etc/dnf/dnf.conf
+    regexp: '^proxy'
+    replace: '#proxy'
+    backup: yes
+  when: ansible_facts['os_family'] == "RedHat" and ansible_facts['distribution_major_version'] == "8"
+
+- name: Disable proxy in rhsm.conf
+  replace:
+    path: /etc/rhsm/rhsm.conf
+    regexp: '^proxy_hostname'
+    replace: '#proxy_hostname'
+    backup: yes

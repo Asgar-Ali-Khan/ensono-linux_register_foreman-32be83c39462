@@ -1,0 +1,88 @@
+---
+    
+- name: Download katello-ca-consumer-latest.deb from Smart Proxy
+  get_url:
+    url: "http://{{ Foreman_Smart_Proxy_Fqdn }}/pub/katello-ca-consumer-latest.deb"
+    dest: "/tmp/katello-ca-consumer-latest.deb"
+    mode: 0644
+
+- name: Install katello-ca-consumer-latest.deb
+  apt:
+    deb: "/tmp/katello-ca-consumer-latest.deb"
+    state: present
+
+- name: Register the server to Foreman using host registration script
+  shell: |
+    curl -s https://{{ Foreman_Smart_Proxy_Fqdn }}/register | bash -s -- --activationkey "{{ Foreman_Key }}" --organization "{{ Foreman_Org }}"
+  args:
+    creates: /etc/foreman-registration  # Adjust if your registration script creates a different file
+
+- name: Create {{ Foreman_Sudo_User }} Foreman service account in the server
+  user:
+    name: "{{ Foreman_Sudo_User }}"
+    comment: "service account for foreman"
+    home: "/home/{{ Foreman_Sudo_User }}"
+    shell: /bin/bash
+    state: present
+    create_home: yes
+
+- name: Create sudoer file for {{ Foreman_Sudo_User }}
+  file:
+    path: "/etc/sudoers.d/{{ Foreman_Sudo_User }}"
+    state: touch
+    mode: '0440'
+    owner: root
+    group: root
+
+- name: Add sudoers rules for {{ Foreman_Sudo_User }}
+  copy:
+    dest: "/etc/sudoers.d/{{ Foreman_Sudo_User }}"
+    content: |
+      {{ Foreman_Sudo_User }} ALL=(ALL) NOPASSWD: ALL
+    mode: '0440'
+    owner: root
+    group: root
+
+- name: Create {{ Foreman_Sudo_User }} account home/.ssh directory
+  file:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/"
+    state: directory
+    mode: '0755'
+    owner: "{{ Foreman_Sudo_User }}"
+    group: "{{ Foreman_Sudo_User }}"
+
+- name: Create {{ Foreman_Sudo_User }} auth file for ssh connection
+  file:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    state: touch
+    mode: '0440'
+    owner: "{{ Foreman_Sudo_User }}"
+    group: "{{ Foreman_Sudo_User }}"
+
+- name: Copy foreman-proxy key to server (UK_ENVISION)
+  lineinfile:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    line: "{{ smart_proxy_1_key }}"
+    state: present
+  when: Foreman_Smart_Proxy == "UK_ENVISION"
+
+- name: Copy foreman-proxy key to server (UK_CLIENT)
+  lineinfile:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    line: "{{ smart_proxy_2_key }}"
+    state: present
+  when: Foreman_Smart_Proxy == "UK_CLIENT"
+
+- name: Copy foreman-proxy key to server (US_ENVISION)
+  lineinfile:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    line: "{{ smart_proxy_3_key }}"
+    state: present
+  when: Foreman_Smart_Proxy == "US_ENVISION"
+
+- name: Copy foreman-proxy key to server (US_CLIENT)
+  lineinfile:
+    path: "/home/{{ Foreman_Sudo_User }}/.ssh/authorized_keys"
+    line: "{{ smart_proxy_4_key }}"
+    state: present
+  when: Foreman_Smart_Proxy == "US_CLIENT"

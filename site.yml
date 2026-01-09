@@ -1,0 +1,19 @@
+---
+# Standards: 1.0
+# file: site.yml
+
+- hosts: all
+  gather_facts: true
+  tasks:
+  - name: Register Linux server to Foreman
+    include_role:
+      name: Lin-Reg-Foreman
+    vars:
+      ansible_become: yes
+    when:
+      (ansible_os_family == "CentOS") or
+      (ansible_os_family == "RedHat") or
+      (ansible_os_family == "Rocky") or
+      (ansible_os_family == "Oracle Linux") or
+      (ansible_os_family == "Debian")
+    tags: LinuxRegister

@@ -1,0 +1,6 @@
+package_name: "subscription-manager"
+Foreman_Smart_Proxy_Fqdn: "{% if ('ENS' in ansible_hostname|upper and 'MOCR' in ansible_hostname|upper) %}ens00fmsp01mocr.ecp.ensono.com{% elif ('ENS' in ansible_hostname|upper and 'MOA' in ansible_hostname|upper) %}ens00fmsp01mocr.ecp.ensono.com{% elif ('ENS' in ansible_hostname|upper and 'MOCP' in ansible_hostname|upper) %}ens00fmsp01mocr.ecp.ensono.com{% elif ('ENK' in ansible_hostname|upper and 'MOCR' in ansible_hostname|upper) %}enk00fmsp01mocr.ecp.ensono.com{% elif ('ENK' in ansible_hostname|upper and 'MOA' in ansible_hostname|upper) %}enk00fmsp01mocr.ecp.ensono.com{% elif ('ENK' in ansible_hostname|upper and 'MOCP' in ansible_hostname|upper) %}enk00fmsp01mocr.ecp.ensono.com{% endif %}"
+Foreman_Smart_Proxy: "{% if ('ENS' in ansible_hostname|upper and 'MOCR' in ansible_hostname|upper) %}US_ENVISION{% elif ('ENS' in ansible_hostname|upper and 'MOA' in ansible_hostname|upper) %}US_ENVISION{% elif ('ENK' in ansible_hostname|upper and 'MOCR' in ansible_hostname|upper) %}UK_ENVISION{% elif ('ENK' in ansible_hostname|upper and 'MOA' in ansible_hostname|upper) %}UK_ENVISION{% endif %}"
+Foreman_Org: "Envision"
+Foreman_Key: "{{ansible_distribution}}{{ansible_distribution_major_version}}_Prod"
+Foreman_Sudo_User: "ens_foreman"

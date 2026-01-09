@@ -1,0 +1,41 @@
+---
+
+- name: Subscription Manager Repos Disable All
+  ansible.builtin.shell:
+    cmd: subscription-manager repos --disable=*
+  ignore_errors: True
+
+- name: Subscription Manager Unregister
+  ansible.builtin.shell:
+    cmd: subscription-manager unregister 
+  ignore_errors: True
+
+- name: Subscription Manager Remove Pool
+  ansible.builtin.shell:
+    cmd: subscription-manager remove --all
+  ignore_errors: True
+
+- name: Subscription Manager Clean Repos
+  ansible.builtin.shell:
+    cmd: subscription-manager clean
+  ignore_errors: True
+
+- name: Remove ca-consumer package/CA certificate of Katello/Foreman Smart Proxy Server {{ Foreman_Smart_Proxy_Fqdn }}
+  yum:
+    name: "katello-ca-consumer-{{ Foreman_Smart_Proxy_Fqdn }}"
+    state: absent
+
+- name: Remove sudoer file for {{ Foreman_Sudo_User }}
+  file:
+    path: "/etc/sudoers.d/{{ Foreman_Sudo_User }}"
+    state: absent
+
+- name: Remove {{ Foreman_Sudo_User }} service account home dir in the server
+  file:
+    path: "/home/{{ Foreman_Sudo_User }}"
+    state: absent
+
+- name: Remove {{ Foreman_Sudo_User }} account in the server
+  user:
+    name: "{{ Foreman_Sudo_User }}"
+    state: absent
